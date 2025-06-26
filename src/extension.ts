@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import fetch from 'node-fetch';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -23,11 +24,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register 'Line History (AI)' command for editor context menu
 	const lineHistoryDisposable = vscode.commands.registerCommand('blameai.lineHistoryAI', (args) => {
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const line = editor.selection.active.line + 1;
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const line = editor.selection.active.line + 1;
 			vscode.window.showInformationMessage(`Line History (AI) for line ${line}`);
-		}
+    }
 	});
 	context.subscriptions.push(lineHistoryDisposable);
 
