@@ -23,21 +23,109 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(disposable);
 
 	// Register 'Line History (AI)' command for editor context menu
-	const lineHistoryDisposable = vscode.commands.registerCommand('blameai.lineHistoryAI', (args) => {
+	const lineHistoryDisposable = vscode.commands.registerCommand('blameai.lineHistoryAI', async (args) => {
     const editor = vscode.window.activeTextEditor;
     if (editor) {
+        const document = editor.document;
+        const filePath = document.uri.fsPath;
         const line = editor.selection.active.line + 1;
-			vscode.window.showInformationMessage(`Line History (AI) for line ${line}`);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath || '';
+        // Get last 3 commit hashes for this line
+        let commitHashes = [];
+        try {
+            const exec = await import('child_process');
+            const { execSync } = exec;
+            // Use git log -L to get commits for the specific line
+            const gitCmd = `git log -L ${line},${line}:"${filePath}" --pretty=format:%H`;
+            const stdout = execSync(gitCmd, { cwd: workspaceFolder });
+            commitHashes = stdout.toString().trim().split(/\r?\n/)
+                .filter(line => /^[0-9a-f]{40}$/i.test(line))
+                .slice(0, 3);
+        } catch (err) {
+            vscode.window.showErrorMessage('Failed to get line commit hashes: ' + (err instanceof Error ? err.message : String(err)));
+            return;
+        }
+        // Get repo name
+        let repoName = '';
+        try {
+            const exec = await import('child_process');
+            const { execSync } = exec;
+            const remoteUrl = execSync('git config --get remote.origin.url', { cwd: workspaceFolder }).toString().trim();
+            // Extract repo name from URL (supports both HTTPS and SSH)
+            const match = remoteUrl.match(/[:\/]{1}([^\/]+\/[^\/]+)(?:\.git)?$/);
+            repoName = match ? match[1].replace(/\.git$/, '') : '';
+        } catch (err) {
+            vscode.window.showErrorMessage('Failed to get repo name: ' + (err instanceof Error ? err.message : String(err)));
+            return;
+        }
+        // Get relative file path
+        const relativePath = workspaceFolder ? filePath.replace(workspaceFolder + '/', '') : filePath;
+        // Show info before calling backend API
+        vscode.window.showInformationMessage(`Calling line-history-ai with repoName: ${repoName}, line: ${line}, relativePath: ${relativePath}, commitHashes: ${commitHashes.join(', ')}`);
+        // Call backend API
+        try {
+            const response = await fetch('http://localhost:5000/line-history-ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ repoName, line, relativePath, commitHashes }),
+            });
+            if (!response.ok) { throw new Error(`HTTP ${response.status}`); }
+            const data = await response.json() as { result: string };
+            vscode.window.showInformationMessage(`AI Line History: ${data.result}`);
+        } catch (err) {
+            vscode.window.showErrorMessage(`Failed to fetch AI line history: ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
-	});
-	context.subscriptions.push(lineHistoryDisposable);
+});
+context.subscriptions.push(lineHistoryDisposable);
 
 	// Register 'File History (AI)' command for explorer context menu
-	const fileHistoryDisposable = vscode.commands.registerCommand('blameai.fileHistoryAI', (uri: vscode.Uri) => {
-		const filePath = uri ? uri.fsPath : 'Unknown file';
-		vscode.window.showInformationMessage(`File History (AI) for ${filePath}`);
-	});
-	context.subscriptions.push(fileHistoryDisposable);
+	const fileHistoryDisposable = vscode.commands.registerCommand('blameai.fileHistoryAI', async (uri: vscode.Uri) => {
+    const filePath = uri ? uri.fsPath : 'Unknown file';
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath || '';
+    // Get last 3 commit hashes for this file
+    let commitHashes = [];
+    try {
+        const exec = await import('child_process');
+        const { execSync } = exec;
+        const gitCmd = `git log -n 3 --pretty=format:%H -- "${filePath}"`;
+        const stdout = execSync(gitCmd, { cwd: workspaceFolder });
+        commitHashes = stdout.toString().trim().split(/\r?\n/);
+    } catch (err) {
+        vscode.window.showErrorMessage('Failed to get commit hashes: ' + (err instanceof Error ? err.message : String(err)));
+        return;
+    }
+    // Get repo name
+    let repoName = '';
+    try {
+        const exec = await import('child_process');
+        const { execSync } = exec;
+        const remoteUrl = execSync('git config --get remote.origin.url', { cwd: workspaceFolder }).toString().trim();
+        const match = remoteUrl.match(/[:\/]{1}([^\/]+\/[^\/]+)(?:\.git)?$/);
+        repoName = match ? match[1].replace(/\.git$/, '') : '';
+    } catch (err) {
+        vscode.window.showErrorMessage('Failed to get repo name: ' + (err instanceof Error ? err.message : String(err)));
+        return;
+    }
+    // Get relative file path
+    const relativePath = workspaceFolder ? filePath.replace(workspaceFolder + '/', '') : filePath;
+    // Show info before calling backend API
+    vscode.window.showInformationMessage(`Calling file-history-ai with repoName: ${repoName}, relativePath: ${relativePath}, commitHashes: ${commitHashes.join(', ')}`);
+    // Call backend API
+    try {
+        const response = await fetch('http://localhost:5000/file-history-ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repoName, relativePath, commitHashes }),
+        });
+        if (!response.ok) { throw new Error(`HTTP ${response.status}`); }
+        const data = await response.json() as { result: string };
+        vscode.window.showInformationMessage(`AI File History: ${data.result}`);
+    } catch (err) {
+        vscode.window.showErrorMessage(`Failed to fetch AI file history: ${err instanceof Error ? err.message : String(err)}`);
+    }
+});
+context.subscriptions.push(fileHistoryDisposable);
 }
 
 // This method is called when your extension is deactivated
