@@ -1,5 +1,32 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
+# Node
+node_modules/
+dist/
+out/
+.env
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.mypy_cache/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Misc
+*.swp
+*.swo
+
+# Python test & coverage
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+
+# Ignore compiled TypeScript
+*.tsbuildinfo

@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Calling line-history-ai with repoName: ${repoName}, line: ${line}, relativePath: ${relativePath}, commitHashes: ${commitHashes.join(', ')}`);
         // Call backend API
         try {
-            const response = await fetch('http://localhost:5000/line-history-ai', {
+            const response = await fetch('http://localhost:8000/line-history-ai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ repoName, line, relativePath, commitHashes }),
@@ -113,7 +113,7 @@ context.subscriptions.push(lineHistoryDisposable);
     vscode.window.showInformationMessage(`Calling file-history-ai with repoName: ${repoName}, relativePath: ${relativePath}, commitHashes: ${commitHashes.join(', ')}`);
     // Call backend API
     try {
-        const response = await fetch('http://localhost:5000/file-history-ai', {
+        const response = await fetch('http://localhost:8000/file-history-ai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repoName, relativePath, commitHashes }),
